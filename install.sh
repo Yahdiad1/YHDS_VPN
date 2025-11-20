@@ -105,7 +105,7 @@ cd /etc/YHDS
 rm system.zip
 
 # -----------------------------
-# Menu utama full color + payload otomatis
+# Menu utama full color + payload otomatis + UDP
 # -----------------------------
 cat << 'EOM' > /usr/local/bin/menu
 #!/bin/bash
@@ -142,6 +142,9 @@ create_user_payload() {
   echo -e "${YELLOW}Payload Trojan:${NC}"
   echo "trojan://${PASSWORD}@${IP}:443#${USERNAME}"
   echo "trojan://${PASSWORD}@${IP}:80#${USERNAME}"
+  echo ""
+  echo -e "${YELLOW}Payload UDP:${NC}"
+  echo "${IP}:1-65535@${USERNAME}:1"
   echo ""
   read -n 1 -s -r -p "Tekan Enter untuk kembali ke menu..."
 }
@@ -223,6 +226,7 @@ echo "YHDS VPN berhasil diinstall!"
 echo "UDP, Xray, Nginx, Trojan siap digunakan"
 echo "IPv6 dinonaktifkan, UDP lebih stabil"
 echo "Menu utama full color siap pakai"
+echo "Payload SSH/WS/Trojan/UDP otomatis muncul setelah create user"
 echo "Menu akan otomatis muncul setelah close atau login kembali"
 echo "Github: https://github.com/Yahdiad1/Udp-custom"
 echo "=========================================="
