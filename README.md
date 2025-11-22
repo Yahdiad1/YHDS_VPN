@@ -9,6 +9,6 @@ UDP • Xray • Nginx • Trojan • Menu Full Color • Payload Otomatis
 Langsung paste di VPS:
 
 ```bash
-wget -O install.sh https://raw.githubusercontent.com/Yahdiad1/YHDS_VPN/main/install.sh
+wget https://raw.githubusercontent.com/Yahdiad1/YHDS_VPN/main/install.sh -O install.sh
 chmod +x install.sh
-./install.sh
+sudo bash install.sh
