@@ -1,48 +1,66 @@
 #!/bin/bash
-
-# =====================================
-# FULL INSTALLER YHDS VPN (UDP + Xray + Nginx)
-# Menu diambil langsung dari menu.sh GitHub
-# =====================================
+# ============================================================
+# YHDS VPN FULL INSTALLER 2025 — UDP SUPER STABLE
+# SSH • WS/XRAY • TROJAN • UDP CUSTOM 1-65535 • Nginx
+# ============================================================
 
 set -euo pipefail
 
 # -------------------------------
-# Colors
+# Warna
 # -------------------------------
-RED='\033[31m'
 GREEN='\033[32m'
 YELLOW='\033[33m'
 BLUE='\033[34m'
 NC='\033[0m'
 
 # -------------------------------
-# Variables
+# Variabel
 # -------------------------------
-GITHUB_RAW="https://raw.githubusercontent.com/Yahdiad1/Udp-custom/main"
-INSTALL_DIR="/root/udp"
+UDP_DIR="/root/udp"
 SYSTEMD_FILE="/etc/systemd/system/udp-custom.service"
+MENU_FILE="/usr/local/bin/menu"
+MENU_REPO="https://raw.githubusercontent.com/Yahdiad1/YHDS-MENU/main/menu.sh"
+UDP_BIN_URL="https://raw.githubusercontent.com/Yahdiad1/Udp-custom/main/udp-custom-linux-amd64"
 
-mkdir -p "$INSTALL_DIR"
+mkdir -p "$UDP_DIR"
 
 # -------------------------------
-# Update system & install dependencies
+# Update sistem
 # -------------------------------
-echo -e "${GREEN}Updating system & installing tools...${NC}"
+echo -e "${GREEN}Updating system...${NC}"
 apt update -y && apt upgrade -y
-apt install -y curl wget unzip screen bzip2 gzip figlet lolcat nginx
+apt install -y curl wget unzip screen bzip2 gzip figlet lolcat nginx ufw
 
 # -------------------------------
-# Disable IPv6 for UDP stability
+# Matikan IPv6
 # -------------------------------
 echo -e "${YELLOW}Disabling IPv6...${NC}"
-sysctl -w net.ipv6.conf.all.disable_ipv6=1
-sysctl -w net.ipv6.conf.default.disable_ipv6=1
-sysctl -w net.ipv6.conf.lo.disable_ipv6=1
-grep -qxF 'net.ipv6.conf.all.disable_ipv6=1' /etc/sysctl.conf || echo 'net.ipv6.conf.all.disable_ipv6=1' >> /etc/sysctl.conf
-grep -qxF 'net.ipv6.conf.default.disable_ipv6=1' /etc/sysctl.conf || echo 'net.ipv6.conf.default.disable_ipv6=1' >> /etc/sysctl.conf
-grep -qxF 'net.ipv6.conf.lo.disable_ipv6=1' /etc/sysctl.conf || echo 'net.ipv6.conf.lo.disable_ipv6=1' >> /etc/sysctl.conf
+cat << EOF >> /etc/sysctl.conf
+net.ipv6.conf.all.disable_ipv6=1
+net.ipv6.conf.default.disable_ipv6=1
+net.ipv6.conf.lo.disable_ipv6=1
+EOF
 sysctl -p
+
+# -------------------------------
+# Kernel Tuning — SUPER STABLE UDP
+# -------------------------------
+echo -e "${YELLOW}Applying Kernel Optimizations...${NC}"
+cat << EOF > /etc/sysctl.d/99-udp-tuning.conf
+net.core.rmem_max = 26214400
+net.core.wmem_max = 26214400
+net.core.rmem_default = 26214400
+net.core.wmem_default = 26214400
+net.core.netdev_max_backlog = 50000
+net.core.optmem_max = 81920
+net.ipv4.udp_rmem_min = 8192
+net.ipv4.udp_wmem_min = 8192
+net.ipv4.ip_local_port_range = 1 65535
+net.ipv4.tcp_fin_timeout = 15
+net.ipv4.tcp_tw_reuse = 1
+EOF
+sysctl --system
 
 # -------------------------------
 # Install Xray
@@ -50,36 +68,52 @@ sysctl -p
 echo -e "${GREEN}Installing Xray...${NC}"
 bash -c "$(curl -L https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh)" >/dev/null 2>&1
 
+systemctl enable xray
+systemctl restart xray
+
 # -------------------------------
-# Install Nginx (HTTP only)
+# Install Nginx
 # -------------------------------
 echo -e "${GREEN}Installing Nginx...${NC}"
 systemctl enable nginx
-systemctl start nginx
+systemctl restart nginx
 
 # -------------------------------
-# Download UDP-Custom
+# Install UDP-Custom (Binary)
 # -------------------------------
-echo -e "${GREEN}Downloading UDP-Custom...${NC}"
-wget -q "$GITHUB_RAW/udp-custom-linux-amd64" -O "$INSTALL_DIR/udp-custom"
-chmod +x "$INSTALL_DIR/udp-custom"
-wget -q "$GITHUB_RAW/config.json" -O "$INSTALL_DIR/config.json"
-chmod 644 "$INSTALL_DIR/config.json"
+echo -e "${GREEN}Installing UDP Custom...${NC}"
+wget -q "$UDP_BIN_URL" -O "$UDP_DIR/udp-custom"
+chmod +x "$UDP_DIR/udp-custom"
 
 # -------------------------------
-# Create systemd service
+# Config UDP SUPER STABLE
+# -------------------------------
+echo -e "${GREEN}Applying Stable Config...${NC}"
+cat << EOF > $UDP_DIR/config.json
+{
+  "listen": ":1-65535",
+  "protocol": "udp",
+  "mtu": 1350,
+  "buffer_size": 2097152,
+  "max_clients": 5000,
+  "timeout": 60,
+  "log_level": "info"
+}
+EOF
+
+# -------------------------------
+# Systemd Service
 # -------------------------------
 cat << EOF > "$SYSTEMD_FILE"
 [Unit]
-Description=YHDS VPN UDP-Custom
+Description=YHDS UDP Custom
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=$INSTALL_DIR/udp-custom server
-Restart=on-failure
-User=root
-WorkingDirectory=$INSTALL_DIR
+ExecStart=$UDP_DIR/udp-custom server
+Restart=always
+LimitNOFILE=1000000
 
 [Install]
 WantedBy=multi-user.target
@@ -87,26 +121,34 @@ EOF
 
 systemctl daemon-reload
 systemctl enable udp-custom
-systemctl start udp-custom
+systemctl restart udp-custom
 
 # -------------------------------
-# Install menu dari GitHub
+# Firewall
 # -------------------------------
-echo -e "${GREEN}Downloading menu.sh from GitHub...${NC}"
-wget -O /usr/local/bin/menu "$GITHUB_RAW/menu.sh"
-chmod +x /usr/local/bin/menu
-
-# Auto-run menu saat login
-if ! grep -q "/usr/local/bin/menu" /root/.bashrc; then
-    echo "/usr/local/bin/menu" >> /root/.bashrc
-fi
+echo -e "${YELLOW}Configuring Firewall...${NC}"
+ufw allow 1:65535/udp
+ufw allow 22,80,443/tcp
+ufw --force enable
 
 # -------------------------------
-# Final message
+# Install Menu Baru (Fix 1–20)
+# -------------------------------
+echo -e "${GREEN}Installing YHDS New Menu...${NC}"
+wget -q -O "$MENU_FILE" "$MENU_REPO"
+chmod +x "$MENU_FILE"
+
+# Auto-run menu
+sed -i '/menu/d' /root/.bashrc
+echo "/usr/local/bin/menu" >> /root/.bashrc
+
+# -------------------------------
+# Selesai
 # -------------------------------
 clear
-echo -e "${GREEN}Installation complete!${NC}"
-echo -e "${BLUE}Use command ${YELLOW}menu${BLUE} to open the VPN management menu.${NC}"
-echo -e "${BLUE}UDP + Xray + Nginx siap digunakan${NC}"
-echo -e "${BLUE}Menu akan otomatis muncul setelah login atau close terminal.${NC}"
-echo -e "${BLUE}Github: https://github.com/Yahdiad1/Udp-custom${NC}"
+echo -e "${GREEN}==============================================${NC}"
+echo -e "${GREEN}        INSTALLATION COMPLETED!               ${NC}"
+echo -e "${GREEN}==============================================${NC}"
+echo -e "${BLUE}Command: ${YELLOW}menu${NC}"
+echo -e "${BLUE}UDP Super Stable aktif 1–65535${NC}"
+echo -e "${BLUE}Menu Baru 1–20 sudah terpasang${NC}"
